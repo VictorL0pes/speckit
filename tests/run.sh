@@ -82,13 +82,18 @@ for lane in $lanes; do
     check "speckit-$lane starts with frontmatter" test "$(head -n 1 "$f")" = ---
     check "speckit-$lane carries the contract" grep -q '^FRESH SESSION:' "$f"
     check "speckit-$lane carries its body" grep -q '^# Lane:' "$f"
+    check "speckit-$lane carries the contract once" test "$(grep -c '^FRESH SESSION:' "$f")" = 1
+    check "speckit-$lane talks caveman ultra" grep -q '^VOICE: caveman ultra' "$f"
+    check "speckit-$lane keeps the voice before its body" test "$(grep -n '^VOICE:' "$f" | cut -d: -f1)" -lt "$(grep -n '^# Lane:' "$f" | cut -d: -f1)"
     check "claude skill speckit-$lane is manual" grep -q '^disable-model-invocation: true' "$proj/.claude/skills/speckit-$lane/SKILL.md"
 done
 for skill in constitution add-task; do
     check "floe skill speckit-$skill" test -f "$proj/.floe/skills/speckit-$skill.md"
     refute "speckit-$skill has no lane contract" grep -q '^FRESH SESSION:' "$proj/.floe/skills/speckit-$skill.md"
     check "claude skill speckit-$skill" test -f "$proj/.claude/skills/speckit-$skill/SKILL.md"
+    check "speckit-$skill talks caveman ultra" grep -q '^VOICE: caveman ultra' "$proj/.floe/skills/speckit-$skill.md"
 done
+check "ships the caveman license" grep -q 'Julius Brussee' "$proj/.speckit/licenses/caveman-MIT.txt"
 
 board="$FLOE_CONFIG_DIR/projects/myapp/colony.toml"
 check "writes the Floe board" test -f "$board"
@@ -115,6 +120,14 @@ mkdir -p "$only"
 check "installs --claude only" "$kit/install.sh" --claude "$only"
 refute "--claude skips Floe" test -e "$only/.floe"
 check "--claude creates CLAUDE.md from the template" grep -q 'project constitution' "$only/CLAUDE.md"
+
+plain="$tmp/plain"
+mkdir -p "$plain"
+check "installs --no-caveman" "$kit/install.sh" --no-caveman --floe "$plain"
+refute "--no-caveman leaves the voice out of lanes" grep -rq '^VOICE:' "$plain/.floe/skills"
+check "--no-caveman still carries the contract" grep -q '^FRESH SESSION:' "$plain/.floe/skills/speckit-verify.md"
+check "--no-caveman installs skills as written" cmp -s "$kit/skills/speckit-add-task.md" "$plain/.floe/skills/speckit-add-task.md"
+refute "--no-caveman ships no caveman license" test -e "$plain/.speckit/licenses/caveman-MIT.txt"
 
 refute "rejects a missing target" "$kit/install.sh"
 refute "rejects an unknown option" "$kit/install.sh" --nope "$only"
