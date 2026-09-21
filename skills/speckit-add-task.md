@@ -21,8 +21,8 @@ Facts are your job, never the user's. Before the first round:
   the card's name, what it delivers and what it waits for. A change that fits
   no row is either part of an existing card or needs a new row: ask the user
   which, and add the row if they agree.
-- Check the board (on Floe: `colony_board`). Is this card already there? Which
-  live card touches the same code?
+- Check the cards in flight: `colony_board` on Floe, `.speckit/bin/next` by
+  hand. Is this card already there? Which live card touches the same code?
 - Check that every card it waits for has merged. If one hasn't, the new card
   waits behind it (below). Never start a card ahead of its dependencies.
 - Read the code the request points at, and the constitution.
@@ -92,7 +92,8 @@ re-adding it.
 **By hand:** once every dependency has merged, create the branch from its base
 (in its own worktree if the user works that way), write
 `specs/<kind>-<name>/task.md`, and commit it as `docs(<name>): add card brief`.
-The next step is `speckit-specify` on that branch.
+The next step is `speckit-specify` on that branch, in a fresh session.
+`.speckit/bin/next` says the same.
 
 ## Report
 
