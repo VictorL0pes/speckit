@@ -1,0 +1,16 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: shellcheck install.sh bin/check-artifacts hooks/commit-msg hooks/pre-commit tests/run.sh
+      - name: Tests
+        run: tests/run.sh
