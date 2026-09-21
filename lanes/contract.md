@@ -51,7 +51,8 @@ LANGUAGE: everything written to the repo is in English: artifacts, code,
 comments, commit messages. Translate whatever language the brief or the user
 used. Text the product's users see follows the constitution.
 
-STYLE: terse and concrete. Exact paths, commands and tables. No filler.
+STYLE: artifacts are terse, concrete prose. Exact paths, commands and tables.
+No filler.
 
 COMMITS: follow the constitution's commit rules and commit your own work. On a
 board, the board commits `specs/<dir>/` after your turn. Run by hand, commit it

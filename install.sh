@@ -6,13 +6,16 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: install.sh [--floe] [--claude] [--hooks] <project-dir>
+Usage: install.sh [--floe] [--claude] [--hooks] [--no-caveman] <project-dir>
 
   --floe     Lane skills into .floe/skills/, and the seven-lane board into
              Floe's config for this project (projects/<dir-name>/colony.toml).
   --claude   Lane skills into .claude/skills/, for running lanes by hand.
   --hooks    Git hooks (conventional commits, no AI attribution, no .env)
              into .githooks/, and core.hooksPath pointed at them.
+  --no-caveman
+             Leave out the caveman ultra voice. By default every skill talks
+             ultra-compressed in chat; what it writes to disk stays plain.
 
 Without --floe or --claude, both are installed.
 Always installed: .speckit/ (templates, check-artifacts, VERSION), plus
@@ -24,13 +27,14 @@ USAGE
 }
 
 kit=$(cd "$(dirname "$0")" && pwd)
-floe=0 claude=0 hooks=0 target=''
+floe=0 claude=0 hooks=0 caveman=1 target=''
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --floe) floe=1 ;;
         --claude) claude=1 ;;
         --hooks) hooks=1 ;;
+        --no-caveman) caveman=0 ;;
         -h | --help) usage 0 ;;
         -*) echo "install.sh: unknown option $1" >&2; usage 1 ;;
         *) [ -z "$target" ] || usage 1; target=$1 ;;
@@ -45,21 +49,24 @@ target=$(cd "$target" && pwd)
 
 say() { printf '  %s\n' "$*"; }
 
-# A lane skill is its own frontmatter, then the shared contract, then its body.
-render_lane() {
-    awk -v contract="$kit/lanes/contract.md" '
-        NR == 1 && /^---$/ { in_fm = 1; print; next }
-        in_fm && /^---$/ {
-            print
-            print ""
-            while ((getline line < contract) > 0) print line
-            print ""
-            print "---"
-            in_fm = 0
-            next
-        }
-        { print }
-    ' "$1"
+# A skill is its own frontmatter, then the shared parts given (empty ones are
+# skipped), then a rule, then its body.
+render() {
+    local file=$1 part end parts=()
+    shift
+    for part in "$@"; do [ -n "$part" ] && parts+=("$part"); done
+    if [ "${#parts[@]}" -eq 0 ]; then
+        cat "$file"
+        return
+    fi
+    end=$(awk 'NR > 1 && /^---$/ { print NR; exit }' "$file")
+    head -n "$end" "$file"
+    for part in "${parts[@]}"; do
+        echo
+        cat "$part"
+    done
+    printf '\n---\n'
+    tail -n +"$((end + 1))" "$file"
 }
 
 # Claude Code runs a lane only when asked, never on its own initiative.
@@ -67,19 +74,22 @@ manual_only() {
     awk 'NR > 1 && /^---$/ && !done { print "disable-model-invocation: true"; done = 1 } { print }'
 }
 
-# name <tab> rendered content, one skill per call of the callback
+# Calls <callback> <name> <lane|skill> once per skill, with the skill on stdin.
 each_skill() {
     local callback=$1 file name
     for file in "$kit"/lanes/*.md; do
         [ "$(basename "$file")" = contract.md ] && continue
         name=$(sed -n 's/^name: *//p' "$file" | head -n 1)
-        render_lane "$file" | "$callback" "$name" lane
+        render "$file" "$kit/lanes/contract.md" "$voice" | "$callback" "$name" lane
     done
     for file in "$kit"/skills/*.md; do
         name=$(sed -n 's/^name: *//p' "$file" | head -n 1)
-        "$callback" "$name" skill < "$file"
+        render "$file" "$voice" | "$callback" "$name" skill
     done
 }
+
+voice=''
+[ "$caveman" -eq 0 ] || voice="$kit/style/caveman-ultra.md"
 
 echo "speckit $(cat "$kit/VERSION") → $target"
 
@@ -91,6 +101,14 @@ cp "$kit/bin/check-artifacts" "$target/.speckit/bin/check-artifacts"
 chmod +x "$target/.speckit/bin/check-artifacts"
 cp "$kit/VERSION" "$target/.speckit/VERSION"
 say ".speckit/ (templates, bin/check-artifacts)"
+if [ -n "$voice" ]; then
+    mkdir -p "$target/.speckit/licenses"
+    cp "$kit/licenses/caveman-MIT.txt" "$target/.speckit/licenses/"
+    say "voice: caveman ultra (in chat only; --no-caveman to leave it out)"
+else
+    rm -f "$target/.speckit/licenses/caveman-MIT.txt"
+    say "voice: plain"
+fi
 
 # 2. Project documents: created once, never overwritten.
 if [ -e "$target/CLAUDE.md" ]; then
