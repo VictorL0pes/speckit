@@ -54,25 +54,35 @@ used. Text the product's users see follows the constitution.
 STYLE: artifacts are terse, concrete prose. Exact paths, commands and tables.
 No filler.
 
-COMMITS: follow the constitution's commit rules and commit your own work. On a
-board, the board commits `specs/<dir>/` after your turn. Run by hand, commit it
-yourself as `docs(<card>): <lane> artifacts`.
+HAND-OFF: when your verdict is clear:
 
-HAND-OFF: end your last message with exactly one of these lines, alone:
+1. Append `- <yyyy-mm-dd> <your lane>: <verdict>` to `specs/<dir>/handoffs.md`
+   (start a missing file with `# Hand-offs — <card>`). The verdict is `pass`,
+   `return <lane> — <what is wrong>` or `stop — <why>`. Write a reason that
+   stands on its own: the lane that gets the card back reads it cold.
+2. Commit, following the constitution's commit rules. On a board, the board
+   commits `specs/<dir>/` after your turn. By hand, commit it with your work
+   as `docs(<card>): <lane> artifacts`.
+3. End your last message with the same verdict, alone on the last line:
 
     COLONY: pass
     COLONY: return <lane> — <one line: what is wrong>
     COLONY: stop — <one line: why this card should not continue>
 
-On a Floe colony board this line moves the card. Run by hand, it tells the
-human which skill runs next:
+On a board, this line moves the card. By hand, `.speckit/bin/next` reads
+`handoffs.md` and names the skill to run next.
 
-| Lane        | Skill                  | Writes                           |
-| ----------- | ---------------------- | -------------------------------- |
-| specifier   | `speckit-specify`      | `spec.md`, `plan.md`, `tasks.md` |
-| spec-review | `speckit-spec-review`  | `spec-review.md`, approval       |
-| coder       | `speckit-implement`    | code, ticks in `tasks.md`        |
-| cleaner     | `speckit-refactor`     | `refactor.md`                    |
-| architect   | `speckit-architecture` | `architecture.md`                |
-| hardener    | `speckit-review`       | `review.md`                      |
-| qa          | `speckit-verify`       | `verify.md`                      |
+SECOND VISIT: if the last line of `handoffs.md` returns the card to your lane,
+you are fixing, not starting over. Read that line and what the returning lane
+wrote (table below), then your own earlier artifacts. Fix what it names first,
+and update your artifacts in place.
+
+| Lane | Skill | Writes |
+| --- | --- | --- |
+| specifier | `speckit-specify` | `spec.md`, `plan.md`, `tasks.md` |
+| spec-review | `speckit-spec-review` | `spec-review.md`, approval and clarifications in `spec.md` |
+| coder | `speckit-implement` | code, ticks and `## Coder notes` in `tasks.md` |
+| cleaner | `speckit-refactor` | `refactor.md` |
+| architect | `speckit-architecture` | `architecture.md` |
+| hardener | `speckit-review` | `review.md` |
+| qa | `speckit-verify` | `verify.md` |

@@ -11,6 +11,10 @@ the three documents every later lane reads. You write **no product code**.
 **Read:** `specs/<dir>/task.md`, `specs/product.md`, the constitution, the
 templates in `.speckit/templates/card/`, and the code you need in order to plan.
 
+On a second visit, also read your own `spec.md`, `plan.md` and `tasks.md`,
+and the latest `spec-review.md` entry. Apply every `(user)` clarification added
+since your last pass and keep the three documents consistent.
+
 ## 1. Start from the brief
 
 `task.md` is the card's brief, usually the result of an interview

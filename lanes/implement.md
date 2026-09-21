@@ -14,6 +14,10 @@ the plan points to, and the code you are about to change.
 If `spec.md` has no `## Approval` section, stop here and hand off
 `return spec-review — spec not approved`.
 
+On a second visit, the report that sent the card back comes first. Fix every
+finding it names, add a test that would have caught each one, and note each
+fix in one line under `## Coder notes`.
+
 ## 1. Match the code that is there
 
 Read the code before you change it. Match its naming, its comment density and
