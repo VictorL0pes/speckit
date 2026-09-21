@@ -94,15 +94,16 @@ voice=''
 echo "speckit $(cat "$kit/VERSION") → $target"
 
 # 1. Kit files: always refreshed.
-mkdir -p "$target/.speckit/templates/card" "$target/.speckit/bin"
+mkdir -p "$target/.speckit/templates/card" "$target/.speckit/bin" "$target/.speckit/licenses"
 cp "$kit"/templates/card/*.md "$target/.speckit/templates/card/"
 cp "$kit/templates/CLAUDE.md" "$kit/templates/product.md" "$target/.speckit/templates/"
 cp "$kit/bin/check-artifacts" "$kit/bin/next" "$target/.speckit/bin/"
 chmod +x "$target/.speckit/bin/check-artifacts" "$target/.speckit/bin/next"
 cp "$kit/VERSION" "$target/.speckit/VERSION"
+cp "$kit/LICENSE" "$target/.speckit/LICENSE"
+cp "$kit/licenses/floe-LICENSE.txt" "$kit/licenses/grilling-MIT.txt" "$target/.speckit/licenses/"
 say ".speckit/ (templates, bin/next, bin/check-artifacts)"
 if [ -n "$voice" ]; then
-    mkdir -p "$target/.speckit/licenses"
     cp "$kit/licenses/caveman-MIT.txt" "$target/.speckit/licenses/"
     say "voice: caveman ultra (in chat only; --no-caveman to leave it out)"
 else
