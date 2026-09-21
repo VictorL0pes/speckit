@@ -1,149 +1,243 @@
 # speckit
 
-Spec-driven development for AI coding agents. Work goes onto a board as
-**cards**. Each card passes through seven lanes, and each lane runs as a fresh
-agent session with one job:
+Spec-driven development for [Claude Code](https://claude.com/claude-code).
+
+You describe a change. A chain of focused agent sessions turns it into a spec,
+gets **your approval**, builds it, simplifies it, checks it against the rest of
+the system, reviews it with a second model, and proves it works. Every step
+leaves its reasoning on disk, so nothing depends on one long conversation.
 
 ```
-specifier → spec-review → coder → cleaner → architect → hardener → qa
-   spec      the user      code    simpler    fits the    adversarial  proves the
-   plan      approves              structure  system,     review with  acceptance
-   tasks     (the gate)                       gates green a 2nd model  criteria
+ you ─► brief ─► specifier ─► spec-review ─► coder ─► cleaner ─► architect ─► hardener ─► qa ─► merge
+                  spec          you approve    code     simpler     fits the     adversarial   proves the
+                  plan          (the gate)     tests    structure   system,      review with   acceptance
+                  tasks                                             gates green  a 2nd model   criteria
 ```
 
-**No product code is written before the user has approved the card's spec.**
-The specifier writes it, the spec-review lane shows it to you, and the coder
-only starts after your approval.
+## Why
 
-speckit packages the workflow built for TrainDesk on the Floe colony board so
-any project can use it. It runs
-on a Floe board, where the lanes move cards on their own, or by hand in Claude
-Code, where you invoke the next lane yourself.
+Coding agents fail in predictable ways, and each lane exists to stop one of them:
 
-## What's in the box
+- **They build before anyone agreed on what.** No product code is written until
+  you have approved the spec. After that, the spec is a contract: if the code
+  can't meet it, the card goes back to the specifier instead of drifting.
+- **They grade their own homework.** Each lane is a fresh session that didn't
+  write what it is judging, and the hardener must get a second opinion from a
+  different model.
+- **They drown in context.** Each lane reads only its own inputs plus the diff,
+  and every document has a size cap. A kilobyte in a spec is read by every lane
+  after it.
+- **"Tests pass" is not "it works".** qa maps each acceptance criterion to the
+  test that proves it, then runs the feature for real.
+- **They wander out of scope.** Every card maps to one row of the product's
+  feature map, and work that belongs to another card stays out.
 
-| Path                             | What it is                                                                                  |
-| -------------------------------- | ------------------------------------------------------------------------------------------- |
-| `lanes/contract.md`              | The rules every lane shares: fresh session, context budget, questions, hand-off             |
-| `lanes/*.md`                     | The seven lanes. The installer puts the contract into each one                              |
-| `style/caveman-ultra.md`         | The caveman ultra voice every skill talks in (chat only)                                    |
-| `skills/speckit-constitution.md` | Project kickoff: interviews you, writes `CLAUDE.md` and `specs/product.md`                  |
-| `skills/speckit-add-task.md`     | Interviews you about one card and writes its brief (`task.md`)                              |
-| `templates/`                     | Constitution, product spec and card artifact templates                                      |
-| `floe/colony.toml`               | The seven-lane board for Floe, with a model per lane                                        |
-| `bin/check-artifacts`            | Fails when a card artifact is over its size cap                                             |
-| `hooks/`                         | `commit-msg` (conventional commits, no AI attribution) and `pre-commit` (never commit .env) |
-| `install.sh`                     | Installs all of the above into a project                                                    |
-| `licenses/`                      | Licenses of adapted third-party work                                                        |
+## Quick start
 
-## Install
+Requirements: Claude Code, `git` and `bash`. `rg` (ripgrep) is recommended. The
+[Codex CLI](https://github.com/openai/codex) gives the hardener its second
+opinion.
 
 ```sh
-git clone https://github.com/VictorL0pes/speckit ~/projects/speckit
-~/projects/speckit/install.sh --hooks ~/projects/myapp
+git clone https://github.com/VictorL0pes/speckit ~/speckit
+~/speckit/install.sh --hooks ~/projects/myapp
+cd ~/projects/myapp && claude
 ```
 
-| Flag           | Installs                                                                                                                               |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `--floe`       | Skills into `.floe/skills/`, and the board into `~/.config/floe/projects/<dir-name>/colony.toml` (a different board is kept as `.bak`) |
-| `--claude`     | Skills into `.claude/skills/<name>/SKILL.md`. The lanes are marked manual-only, so Claude never starts one on its own                  |
-| `--hooks`      | `.githooks/` and `core.hooksPath` (left alone if another hook manager owns it)                                                         |
-| `--no-caveman` | Plain voice instead of caveman ultra (see below)                                                                                       |
+**1. Set up the project, once.** Run `/speckit-constitution`. It reads the repo,
+interviews you, and writes two documents:
 
-Without `--floe` or `--claude` you get both. Every install also adds
-`.speckit/` (templates, `check-artifacts`, `VERSION`) and creates `CLAUDE.md`
-and `specs/product.md` from the templates if they don't exist yet. The
-installer never overwrites those two files. Re-run it to update a project to a
-newer kit. Commit what it installed in the project.
+- `CLAUDE.md`, the **constitution**: stack, commands, the one quality-gate
+  command, and the hard rules every lane obeys.
+- `specs/product.md`, the **product spec**: what the product is, who uses it,
+  the product decisions, and the **feature map**, which lists every card in
+  dependency order.
 
-## Workflow
+**2. Add a card.** Run `/speckit-add-task`. It interviews you in rounds until
+every decision is settled. Then it creates the branch `<kind>/<name>` (for
+example `feat/clients`) and writes the card's brief to
+`specs/feat-clients/task.md`.
 
-1. **Kickoff: `speckit-constitution`.** It interviews you and writes the
-   constitution (`CLAUDE.md`: stack, commands, the one quality gate, hard
-   rules) and the product spec (`specs/product.md`: product decisions and the
-   **feature map**, which lists every card in dependency order).
-2. **A card: `speckit-add-task`.** It interviews you in rounds until every
-   decision is settled, then writes the brief: Request, Decisions, Scope, Out of
-   scope, Done when, Anchors. On Floe it creates the card. By hand it creates
-   the `<kind>/<name>` branch. Cards only start once the cards they wait for
-   have merged.
-3. **The lanes.** On Floe the board runs them. By hand, run each skill on the
-   card's branch, in a fresh session, in this order:
+**3. Run the lanes.** On the card's branch, run each lane in a **fresh session**
+(`/clear`, or a new `claude`):
 
-   | Lane        | Skill                  | Reads                         | Writes                                  |
-   | ----------- | ---------------------- | ----------------------------- | --------------------------------------- |
-   | specifier   | `speckit-specify`      | `task.md`, `specs/product.md` | `spec.md`, `plan.md`, `tasks.md`        |
-   | spec-review | `speckit-spec-review`  | `task.md`, spec, plan, tasks  | `spec-review.md`, the approval          |
-   | coder       | `speckit-implement`    | spec, plan, tasks             | code, tests, ticks in `tasks.md`        |
-   | cleaner     | `speckit-refactor`     | tasks, the diff               | small refactor commits, `refactor.md`   |
-   | architect   | `speckit-architecture` | spec, the diff                | `architecture.md`, mechanical fixes     |
-   | hardener    | `speckit-review`       | spec, the diff                | `review.md`, small fixes                |
-   | qa          | `speckit-verify`       | spec, tasks, the diff         | `verify.md`, missing tests              |
+```
+/speckit-specify
+/speckit-spec-review      ← asks you to approve the spec
+/speckit-implement
+/speckit-refactor
+/speckit-architecture
+/speckit-review
+/speckit-verify
+```
 
-   Every lane ends with one line: `COLONY: pass`,
-   `COLONY: return <lane> — <why>` or `COLONY: stop — <why>`. On Floe that line
-   moves the card. By hand, it tells you what to run next.
+**4. Ask what's next.** Each lane records its verdict, so you never have to
+remember where a card stands:
 
-4. **Merge** once qa passes.
+```console
+$ .speckit/bin/next
+specs/feat-clients: run /speckit-implement (coder) in a fresh session
+  last: 2026-09-22 hardener: return coder — anamnesis update skips the tenant check
+```
 
-A card's documents live in `specs/<branch-with-dashes>/`, so `feat/clients`
-becomes `specs/feat-clients/`.
+**5. Merge** when `next` says qa passed.
 
-## The rules the lanes carry
+## The lanes
 
-- **The spec is a contract.** The code must match the approved spec. If it
-  can't, the card goes back to the specifier. A spec stays inside its card's
-  feature-map row.
-- **Only two lanes talk to you.** The specifier may ask up to three questions,
-  batched, each with a recommendation. The spec-review lane asks one question:
-  "Approve this spec?". Every other lane decides and records the assumption, or
-  returns the card to the lane that owns the decision.
-- **Context budget.** Each lane reads only its own inputs (the table above) plus
-  the diff, never dumps whole files, and never reads lockfiles or binaries.
-  Artifacts have caps: `spec.md` 6 KB, `plan.md` 8 KB, `tasks.md` 4 KB, each
-  lane report 4 KB. `check-artifacts` enforces them. A kilobyte in an artifact
-  is read by every lane after it.
-- **A second opinion.** The hardener must get a review from a different model
-  (Codex by default) and record where it overruled it.
-- **Evidence over green.** qa maps each acceptance criterion to a test and uses
-  the feature for real. A green suite that never covered the feature proves
-  nothing.
-- **English in the repo.** Artifacts, code and commits are in English. What
-  users see follows the constitution.
-- **`AUTONOMOUS BOARD`.** A card created with that flag runs with nobody
-  answering: every lane takes the recommended option and records it as
-  `(assumed)`, and spec-review auto-approves a spec that passes its pre-check.
+| Lane        | Command                 | Reads                         | Writes                                |
+| ----------- | ----------------------- | ----------------------------- | ------------------------------------- |
+| specifier   | `/speckit-specify`      | `task.md`, `specs/product.md` | `spec.md`, `plan.md`, `tasks.md`      |
+| spec-review | `/speckit-spec-review`  | `task.md`, spec, plan, tasks  | `spec-review.md`, the approval        |
+| coder       | `/speckit-implement`    | spec, plan, tasks             | tests and code, ticks in `tasks.md`   |
+| cleaner     | `/speckit-refactor`     | tasks, the diff               | small refactor commits, `refactor.md` |
+| architect   | `/speckit-architecture` | spec, the diff                | `architecture.md`, mechanical fixes   |
+| hardener    | `/speckit-review`       | spec, the diff                | `review.md`, small fixes              |
+| qa          | `/speckit-verify`       | spec, tasks, the diff         | `verify.md`, missing tests            |
+
+Every lane also reads the constitution, the code it needs, and `handoffs.md`.
+
+- **specifier** writes what and why (`spec.md`: user stories with
+  Given/When/Then, numbered requirements, measurable success criteria), how
+  (`plan.md`: design checked against the constitution, every new dependency
+  justified), and in what order (`tasks.md`: tests before the code they cover).
+  It may ask you up to three questions, each with a recommended answer.
+- **spec-review** checks the spec against the brief and the constitution first,
+  and sends it back without bothering you if something is missing. Otherwise it
+  shows you a two-minute summary, including every assumption the specifier made
+  on its own, and asks one question: approve, approve with notes, send back, or
+  park.
+- **coder** builds `tasks.md` in order, ticks each task, and keeps the quality
+  gate green. It refuses to start on a spec you haven't approved.
+- **cleaner** looks for accidental complexity in the diff that a better data
+  structure would remove. It makes small refactors and only recommends larger
+  ones.
+- **architect** checks that the change sits in the right layer, respects the
+  project's boundaries and conventions, and passes every gate. It fixes
+  formatting-type problems itself and sends everything else back to the coder.
+- **hardener** reviews like a senior engineer (correctness, failure modes,
+  security, data leaks between accounts), argues with a second model, fixes
+  what is small, and sends back what needs a design decision.
+- **qa** runs everything, maps each acceptance criterion to its evidence, uses
+  the feature for real, and passes the card or sends it back.
+
+## Hand-offs and second visits
+
+Every lane ends with a verdict, both as the last line of its message and as a
+line appended to the card's `specs/<dir>/handoffs.md`:
+
+```
+- 2026-09-21 specifier: pass
+- 2026-09-21 spec-review: pass
+- 2026-09-22 hardener: return coder — anamnesis update skips the tenant check
+```
+
+- `pass`: run the next lane.
+- `return <lane> — <reason>`: run that lane again. It opens `handoffs.md`, sees
+  the card came back, reads the report of the lane that sent it (here
+  `review.md`), and fixes that first instead of starting over. The coder also
+  adds a test that would have caught each finding.
+- `stop — <reason>`: the card is parked.
+
+`.speckit/bin/next` reads the last line and tells you which command to run. On a
+card's branch it shows that card. Anywhere else it lists every card.
+
+## A card's files
+
+Everything about a card lives in `specs/<branch-with-dashes>/` and is committed
+with the code:
+
+| File              | Written by  | Cap  |
+| ----------------- | ----------- | ---- |
+| `task.md`         | add-task    |      |
+| `spec.md`         | specifier   | 6 KB |
+| `plan.md`         | specifier   | 8 KB |
+| `tasks.md`        | specifier   | 4 KB |
+| `spec-review.md`  | spec-review |      |
+| `refactor.md`     | cleaner     | 4 KB |
+| `architecture.md` | architect   | 4 KB |
+| `review.md`       | hardener    | 4 KB |
+| `verify.md`       | qa          | 4 KB |
+| `handoffs.md`     | every lane  |      |
+
+`.speckit/bin/check-artifacts` fails when a file is over its cap. Lanes run it
+before they hand off, and when they're over, they cut prose, never decisions.
+
+## Prompt lines
+
+Add these to a lane's prompt when you need them:
+
+- `Base: <branch>`: the card merges into `<branch>` instead of the default
+  branch. Diffs are taken against it.
+- `AUTONOMOUS BOARD`: nobody will answer questions. Lanes take the recommended
+  option and record it as `(assumed)`, and spec-review approves a spec that
+  passes its own checks.
 
 ## Voice: caveman ultra
 
-Every speckit skill talks in the `ultra` level of
-[caveman](https://github.com/JuliusBrussee/caveman): articles, filler, hedging
-and tool-call narration are dropped, and each fact is stated once. That covers
-every chat message, the report at the end of each turn, and every line before
-a tool call, so each lane turn spends fewer output tokens.
+Every skill talks in the `ultra` level of
+[caveman](https://github.com/JuliusBrussee/caveman): no articles, filler,
+hedging or narration around tool calls, and each fact stated once. That covers
+every chat message and the report at the end of each turn, so each lane spends
+fewer output tokens.
 
-Only the talk is compressed. Everything written to disk (spec, plan, tasks,
-lane reports like `review.md`, code, comments, commits) stays plain English
-prose, because later lanes and you read it. Code, paths, commands, numbers and
-error strings are never altered, and the `COLONY:` line stays exact. The skill
-speaks plainly for security warnings, irreversible actions, ordered steps that
-compression would blur, and whenever you ask it to clarify.
+Only the talk is compressed. Everything written to disk (the card's files, code,
+comments, commits) stays plain English prose, because later lanes and you read
+it. Code, paths, commands, numbers and error strings are never altered. Lanes
+speak plainly for security warnings, irreversible actions and ordered steps, and
+whenever you ask them to clarify.
 
-The voice is a block of about 1.4 KB, not the full caveman skill, so it barely touches
-the context budget. Install with `--no-caveman` to leave it out.
+The voice is a block of about 1.4 KB, not the full caveman skill. Install with
+`--no-caveman` to leave it out.
+
+## Install options
+
+```sh
+install.sh [--hooks] [--no-caveman] <project-dir>
+```
+
+Every install adds:
+
+- `.claude/skills/speckit-*/SKILL.md`: the nine skills. The seven lanes are
+  manual-only, so Claude never starts one on its own.
+- `.speckit/`: the templates, `bin/next`, `bin/check-artifacts` and `VERSION`.
+- `CLAUDE.md` and `specs/product.md` from the templates, **only if they don't
+  exist yet**. The installer never overwrites them.
+
+Flags:
+
+- `--hooks`: installs `.githooks/commit-msg` (conventional commits, no AI
+  attribution lines) and `.githooks/pre-commit` (never commit `.env` files),
+  and points `core.hooksPath` at them unless another hook manager already owns
+  it.
+- `--no-caveman`: plain voice instead of caveman ultra.
+
+Commit what the installer added. To update a project to a newer speckit, pull
+this repo and run `install.sh` again: kit files are refreshed, your documents
+are left alone.
+
+## Tips
+
+- **One fresh session per lane.** Running every lane in one conversation defeats
+  the point: reviewers remember writing the code, and every lane pays for all
+  the reading done before it.
+- **Several cards at once:** give each card its own worktree
+  (`git worktree add ../myapp-clients feat/clients`) and its own session.
+- **Respect the feature map.** `speckit-add-task` won't start a card until the
+  cards it waits for have merged.
+- **The approval is yours.** Read the assumptions spec-review lists. They are
+  what you are really approving.
 
 ## Customizing
 
-- **Lanes:** edit `lanes/*.md` or `lanes/contract.md`, then re-run
-  `install.sh` in each project.
-- **Models per lane:** edit `floe/colony.toml`.
-- **Commit types:** edit `types` in `hooks/commit-msg`, and keep it in step with
-  the constitution's Git section.
-- **Extra blocked paths:** set `blocked_paths` in `hooks/pre-commit` (e.g.
-  `'^storage/'`).
-- **Voice:** edit `style/caveman-ultra.md`.
-- **Caps:** edit `cap_for` in `bin/check-artifacts` and the numbers in
-  `lanes/contract.md`.
+| To change                   | Edit                                                                       |
+| --------------------------- | -------------------------------------------------------------------------- |
+| What a lane does            | `lanes/<lane>.md`, then re-run `install.sh`                                |
+| Rules every lane shares     | `lanes/contract.md`                                                        |
+| The voice                   | `style/caveman-ultra.md`                                                   |
+| Document structure          | `templates/`                                                               |
+| Size caps                   | `cap_for` in `bin/check-artifacts`, and the numbers in `lanes/contract.md` |
+| Commit types                | `types` in `hooks/commit-msg`, in step with the constitution's Git section |
+| Extra paths never committed | `blocked_paths` in `hooks/pre-commit` (e.g. `'^storage/'`)                 |
 
 ## Development
 
@@ -151,14 +245,12 @@ the context budget. Install with `--no-caveman` to leave it out.
 tests/run.sh
 ```
 
-It tests the hooks, `check-artifacts` and `install.sh` (into temporary
-repositories) and keeps each installed lane under 10 KB. CI also runs
+The tests cover the hooks, `check-artifacts`, `next` and `install.sh` (against
+temporary repositories), and keep each installed lane under 11 KB. CI also runs
 ShellCheck.
 
 ## Credits
 
-- The lane structure and the `COLONY:` hand-off follow the built-in colony
-  skills of Floe.
 - The spec → plan → tasks split, `[NEEDS CLARIFICATION]` and the constitution
   come from GitHub's [Spec Kit](https://github.com/github/spec-kit).
 - The caveman ultra voice is adapted from Julius Brussee's
