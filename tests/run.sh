@@ -130,6 +130,10 @@ for skill in constitution add-task; do
     check "speckit-$skill talks caveman ultra" grep -q '^VOICE: caveman ultra' "$proj/.floe/skills/speckit-$skill.md"
 done
 check "ships the caveman license" grep -q 'Julius Brussee' "$proj/.speckit/licenses/caveman-MIT.txt"
+check "ships the kit license" test -f "$proj/.speckit/LICENSE"
+check "ships the colony license" test -f "$proj/.speckit/licenses/floe-LICENSE.txt"
+check "colony license keeps the Commons Clause" grep -q 'Commons Clause' "$proj/.speckit/licenses/floe-LICENSE.txt"
+check "ships the grilling license" test -f "$proj/.speckit/licenses/grilling-MIT.txt"
 
 board="$FLOE_CONFIG_DIR/projects/myapp/colony.toml"
 check "writes the Floe board" test -f "$board"
@@ -171,6 +175,7 @@ refute "--no-caveman leaves the voice out of lanes" grep -rq '^VOICE:' "$plain/.
 check "--no-caveman still carries the contract" grep -q '^FRESH SESSION:' "$plain/.floe/skills/speckit-verify.md"
 check "--no-caveman installs skills as written" cmp -s "$kit/skills/speckit-add-task.md" "$plain/.floe/skills/speckit-add-task.md"
 refute "--no-caveman ships no caveman license" test -e "$plain/.speckit/licenses/caveman-MIT.txt"
+check "--no-caveman still ships the colony license" test -f "$plain/.speckit/licenses/floe-LICENSE.txt"
 
 refute "rejects a missing target" "$kit/install.sh"
 refute "rejects an unknown option" "$kit/install.sh" --nope "$only"
