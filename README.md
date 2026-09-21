@@ -26,6 +26,7 @@ Code, where you invoke the next lane yourself.
 | -------------------------------- | ------------------------------------------------------------------------------------------- |
 | `lanes/contract.md`              | The rules every lane shares: fresh session, context budget, questions, hand-off             |
 | `lanes/*.md`                     | The seven lanes. The installer puts the contract into each one                              |
+| `style/caveman-ultra.md`         | The caveman ultra voice every skill talks in (chat only)                                    |
 | `skills/speckit-constitution.md` | Project kickoff: interviews you, writes `CLAUDE.md` and `specs/product.md`                  |
 | `skills/speckit-add-task.md`     | Interviews you about one card and writes its brief (`task.md`)                              |
 | `templates/`                     | Constitution, product spec and card artifact templates                                      |
@@ -33,6 +34,7 @@ Code, where you invoke the next lane yourself.
 | `bin/check-artifacts`            | Fails when a card artifact is over its size cap                                             |
 | `hooks/`                         | `commit-msg` (conventional commits, no AI attribution) and `pre-commit` (never commit .env) |
 | `install.sh`                     | Installs all of the above into a project                                                    |
+| `licenses/`                      | Licenses of adapted third-party work                                                        |
 
 ## Install
 
@@ -41,11 +43,12 @@ git clone https://github.com/VictorL0pes/speckit ~/projects/speckit
 ~/projects/speckit/install.sh --hooks ~/projects/myapp
 ```
 
-| Flag       | Installs                                                                                                                               |
-| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `--floe`   | Skills into `.floe/skills/`, and the board into `~/.config/floe/projects/<dir-name>/colony.toml` (a different board is kept as `.bak`) |
-| `--claude` | Skills into `.claude/skills/<name>/SKILL.md`. The lanes are marked manual-only, so Claude never starts one on its own                  |
-| `--hooks`  | `.githooks/` and `core.hooksPath` (left alone if another hook manager owns it)                                                         |
+| Flag           | Installs                                                                                                                               |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `--floe`       | Skills into `.floe/skills/`, and the board into `~/.config/floe/projects/<dir-name>/colony.toml` (a different board is kept as `.bak`) |
+| `--claude`     | Skills into `.claude/skills/<name>/SKILL.md`. The lanes are marked manual-only, so Claude never starts one on its own                  |
+| `--hooks`      | `.githooks/` and `core.hooksPath` (left alone if another hook manager owns it)                                                         |
+| `--no-caveman` | Plain voice instead of caveman ultra (see below)                                                                                       |
 
 Without `--floe` or `--claude` you get both. Every install also adds
 `.speckit/` (templates, `check-artifacts`, `VERSION`) and creates `CLAUDE.md`
@@ -111,6 +114,24 @@ becomes `specs/feat-clients/`.
   answering: every lane takes the recommended option and records it as
   `(assumed)`, and spec-review auto-approves a spec that passes its pre-check.
 
+## Voice: caveman ultra
+
+Every speckit skill talks in the `ultra` level of
+[caveman](https://github.com/JuliusBrussee/caveman): articles, filler, hedging
+and tool-call narration are dropped, and each fact is stated once. That covers
+every chat message, the report at the end of each turn, and every line before
+a tool call, so each lane turn spends fewer output tokens.
+
+Only the talk is compressed. Everything written to disk (spec, plan, tasks,
+lane reports like `review.md`, code, comments, commits) stays plain English
+prose, because later lanes and you read it. Code, paths, commands, numbers and
+error strings are never altered, and the `COLONY:` line stays exact. The skill
+speaks plainly for security warnings, irreversible actions, ordered steps that
+compression would blur, and whenever you ask it to clarify.
+
+The voice is a block of about 1.4 KB, not the full caveman skill, so it barely touches
+the context budget. Install with `--no-caveman` to leave it out.
+
 ## Customizing
 
 - **Lanes:** edit `lanes/*.md` or `lanes/contract.md`, then re-run
@@ -120,6 +141,7 @@ becomes `specs/feat-clients/`.
   the constitution's Git section.
 - **Extra blocked paths:** set `blocked_paths` in `hooks/pre-commit` (e.g.
   `'^storage/'`).
+- **Voice:** edit `style/caveman-ultra.md`.
 - **Caps:** edit `cap_for` in `bin/check-artifacts` and the numbers in
   `lanes/contract.md`.
 
@@ -139,6 +161,9 @@ ShellCheck.
   skills of Floe.
 - The spec → plan → tasks split, `[NEEDS CLARIFICATION]` and the constitution
   come from GitHub's [Spec Kit](https://github.com/github/spec-kit).
+- The caveman ultra voice is adapted from Julius Brussee's
+  [caveman](https://github.com/JuliusBrussee/caveman) skill (MIT, see
+  `licenses/caveman-MIT.txt`).
 - The interview rounds are adapted from Matt Pocock's
   [`grilling`](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md)
   skill.
