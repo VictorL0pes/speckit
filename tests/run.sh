@@ -61,6 +61,39 @@ refute "fails over the spec cap" "$kit/bin/check-artifacts" "$card"
 check "defaults to every card in specs/" bash -c "cd '$tmp' && ! '$kit/bin/check-artifacts'"
 refute "fails on a missing directory" "$kit/bin/check-artifacts" "$tmp/nope"
 
+# --- next -------------------------------------------------------------------
+
+cards="$tmp/cards"
+git init -q "$cards"
+card() { mkdir -p "$cards/specs/$1"; touch "$cards/specs/$1/task.md"; [ -z "${2:-}" ] || printf '%b' "$2" > "$cards/specs/$1/handoffs.md"; }
+next_says() { local out; out=$(cd "$cards" && "$kit/bin/next" "${@:2}") || return 1; grep -qF -- "$1" <<< "$out"; }
+
+card feat-new
+card feat-specd '# Hand-offs — specd\n\n- 2026-09-21 specifier: pass\n'
+card feat-back '- 2026-09-21 specifier: pass\n- 2026-09-22 hardener: return coder — update skips the tenant check\n'
+card feat-done '- 2026-09-21 coder: pass\n- 2026-09-23 qa: pass\n'
+card feat-parked '- 2026-09-21 spec-review: stop — the user parked it\n'
+card feat-odd '- 2026-09-21 hardener: return nobody — ?\n'
+card feat-legacy
+touch "$cards/specs/feat-legacy/spec.md"
+mkdir -p "$cards/specs/notes"
+
+check "next: a new card goes to the specifier" next_says 'specs/feat-new: run /speckit-specify' specs/feat-new
+check "next: a pass goes to the next lane" next_says 'specs/feat-specd: run /speckit-spec-review' specs/feat-specd
+check "next: a return goes back to that lane" next_says 'specs/feat-back: run /speckit-implement' specs/feat-back
+check "next: a return shows the reason" next_says 'update skips the tenant check' specs/feat-back
+check "next: qa pass means merge" next_says 'qa passed. Merge the branch' specs/feat-done
+check "next: stop means parked" next_says 'specs/feat-parked: parked' specs/feat-parked
+check "next: flags an unknown lane" next_says "unknown lane 'nobody'" specs/feat-odd
+check "next: flags a card with no hand-offs past the spec" next_says 'no hand-off recorded' specs/feat-legacy
+check "next: lists every card off a card branch" next_says 'specs/feat-done:'
+refute "next: skips directories without task.md" next_says 'specs/notes'
+git -C "$cards" checkout -q -b feat/back
+check "next: on a card branch, shows that card" next_says 'specs/feat-back:'
+refute "next: on a card branch, shows only that card" next_says 'specs/feat-new'
+refute "next: fails on a missing directory" bash -c "cd '$cards' && '$kit/bin/next' specs/nope"
+check "next: says so when there are no cards" bash -c "cd '$tmp' && mkdir -p empty && cd empty && '$kit/bin/next' | grep -q 'No cards'"
+
 # --- install.sh -------------------------------------------------------------
 
 proj="$tmp/myapp"
@@ -68,12 +101,13 @@ export FLOE_CONFIG_DIR="$tmp/floe"
 git init -q "$proj"
 echo "# my rules" > "$proj/CLAUDE.md"
 
-check "installs" "$kit/install.sh" --hooks "$proj"
+check "installs" "$kit/install.sh" --floe --claude --hooks "$proj"
 
 check "keeps an existing CLAUDE.md" grep -qx '# my rules' "$proj/CLAUDE.md"
 check "creates the product spec" test -f "$proj/specs/product.md"
 check "installs the card templates" test -f "$proj/.speckit/templates/card/spec.md"
 check "installs check-artifacts" test -x "$proj/.speckit/bin/check-artifacts"
+check "installs next" test -x "$proj/.speckit/bin/next"
 
 lanes='specify spec-review implement refactor architecture review verify'
 for lane in $lanes; do
@@ -83,6 +117,8 @@ for lane in $lanes; do
     check "speckit-$lane carries the contract" grep -q '^FRESH SESSION:' "$f"
     check "speckit-$lane carries its body" grep -q '^# Lane:' "$f"
     check "speckit-$lane carries the contract once" test "$(grep -c '^FRESH SESSION:' "$f")" = 1
+    check "speckit-$lane records its hand-off" grep -q 'specs/<dir>/handoffs.md' "$f"
+    check "speckit-$lane knows about second visits" grep -q '^SECOND VISIT:' "$f"
     check "speckit-$lane talks caveman ultra" grep -q '^VOICE: caveman ultra' "$f"
     check "speckit-$lane keeps the voice before its body" test "$(grep -n '^VOICE:' "$f" | cut -d: -f1)" -lt "$(grep -n '^# Lane:' "$f" | cut -d: -f1)"
     check "claude skill speckit-$lane is manual" grep -q '^disable-model-invocation: true' "$proj/.claude/skills/speckit-$lane/SKILL.md"
@@ -105,7 +141,7 @@ done < <(sed -n 's/^skill *= *"\(.*\)"/\1/p' "$board")
 check "installs the hooks" test -x "$proj/.githooks/commit-msg"
 check "points core.hooksPath at them" test "$(git -C "$proj" config core.hooksPath)" = .githooks
 
-check "re-runs cleanly" "$kit/install.sh" --hooks "$proj"
+check "re-runs cleanly" "$kit/install.sh" --floe --claude --hooks "$proj"
 refute "no board backup when unchanged" test -e "$board.bak"
 echo "cap = 2" > "$board"
 check "re-runs over a changed board" "$kit/install.sh" --floe "$proj"
@@ -114,6 +150,13 @@ check "backs up a changed board" grep -qx 'cap = 2' "$board.bak"
 git -C "$proj" config core.hooksPath .husky
 check "installs next to another hook manager" "$kit/install.sh" --hooks "$proj"
 check "leaves another hooksPath alone" test "$(git -C "$proj" config core.hooksPath)" = .husky
+
+dflt="$tmp/dflt"
+mkdir -p "$dflt"
+check "installs with no flags" "$kit/install.sh" "$dflt"
+check "defaults to Claude Code" test -f "$dflt/.claude/skills/speckit-specify/SKILL.md"
+refute "leaves Floe out by default" test -e "$dflt/.floe"
+refute "writes no Floe board by default" test -e "$FLOE_CONFIG_DIR/projects/dflt"
 
 only="$tmp/onlyclaude"
 mkdir -p "$only"
@@ -136,7 +179,7 @@ refute "rejects an unknown option" "$kit/install.sh" --nope "$only"
 
 for lane in $lanes; do
     size=$(wc -c < "$proj/.floe/skills/speckit-$lane.md")
-    check "speckit-$lane stays under 10 KB ($size bytes)" test "$size" -le 10240
+    check "speckit-$lane stays under 11 KB ($size bytes)" test "$size" -le 11264
 done
 
 echo "$pass passed, $fail failed"

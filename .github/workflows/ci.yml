@@ -11,6 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: ShellCheck
-        run: shellcheck install.sh bin/check-artifacts hooks/commit-msg hooks/pre-commit tests/run.sh
+        run: shellcheck install.sh bin/check-artifacts bin/next hooks/commit-msg hooks/pre-commit tests/run.sh
       - name: Tests
         run: tests/run.sh
