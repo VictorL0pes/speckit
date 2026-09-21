@@ -1,0 +1,43 @@
+# speckit colony board for Floe: spec-driven.
+# The specifier writes spec.md, plan.md and tasks.md.
+# spec-review waits for your approval before any code is written.
+# Project format: top-level keys and [[stage]] (no "colony." prefix).
+# The order of the stages below is the order they run in.
+
+cap = 5
+
+[[stage]]
+name  = "specifier"
+skill = "speckit-specify"
+model = "opus"
+
+[[stage]]
+name  = "spec-review"
+skill = "speckit-spec-review"
+model = "sonnet"
+
+[[stage]]
+name  = "coder"
+skill = "speckit-implement"
+model = "opus"
+
+[[stage]]
+name  = "cleaner"
+skill = "speckit-refactor"
+model = "opus"
+cap   = 1
+
+[[stage]]
+name  = "architect"
+skill = "speckit-architecture"
+model = "sonnet"
+
+[[stage]]
+name  = "hardener"
+skill = "speckit-review"
+model = "opus"
+
+[[stage]]
+name  = "qa"
+skill = "speckit-verify"
+model = "haiku"

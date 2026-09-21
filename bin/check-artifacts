@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# speckit: fail when a card artifact is over its size cap.
+# Usage: check-artifacts [specs/<dir> ...]   (default: every card in specs/)
+
+set -euo pipefail
+
+cap_for() {
+    case "$1" in
+        spec.md) echo 6144 ;;
+        plan.md) echo 8192 ;;
+        tasks.md | refactor.md | architecture.md | review.md | verify.md) echo 4096 ;;
+        *) echo 0 ;;
+    esac
+}
+
+if [ "$#" -eq 0 ]; then
+    shopt -s nullglob
+    set -- specs/*/
+fi
+
+status=0
+for dir in "$@"; do
+    dir=${dir%/}
+    if [ ! -d "$dir" ]; then
+        echo "check-artifacts: $dir is not a directory" >&2
+        status=1
+        continue
+    fi
+    for file in "$dir"/*.md; do
+        [ -f "$file" ] || continue
+        cap=$(cap_for "$(basename "$file")")
+        [ "$cap" -gt 0 ] || continue
+        size=$(wc -c < "$file" | tr -d ' ')
+        if [ "$size" -gt "$cap" ]; then
+            echo "$file: $size bytes, cap $cap. Cut prose, never decisions." >&2
+            status=1
+        fi
+    done
+done
+
+[ "$status" -ne 0 ] || echo "check-artifacts: every artifact is within its cap."
+exit "$status"

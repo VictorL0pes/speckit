@@ -1,0 +1,31 @@
+#!/bin/sh
+# speckit: conventional commits, and no AI attribution lines.
+
+# Allowed commit types. Keep in step with the constitution's Git section.
+types='feat|fix|chore|test|docs|refactor'
+
+msg_file="$1"
+
+# Drop git's scissors section and comment lines.
+body=$(sed -e '/^# -\{24\} >8 -\{24\}$/,$d' -e '/^#/d' "$msg_file")
+
+if printf '%s\n' "$body" | grep -Eiq '^[[:space:]]*co-authored-by:.*(claude|anthropic)|generated with.*claude'; then
+    echo "commit-msg: AI attribution lines are not allowed (see the constitution's Git section)." >&2
+    exit 1
+fi
+
+subject=$(printf '%s\n' "$body" | sed -n '/[^[:space:]]/{p;q;}')
+
+# An empty message is left for git to reject.
+[ -n "$subject" ] || exit 0
+
+# Messages git writes itself.
+case "$subject" in
+    'Merge '* | 'Revert "'* | 'fixup! '* | 'squash! '* | 'amend! '*) exit 0 ;;
+esac
+
+if ! printf '%s\n' "$subject" | grep -Eq "^($types)(\([^()[:space:]]+\))?!?: [^[:space:]]"; then
+    echo "commit-msg: \"$subject\" is not a conventional commit." >&2
+    echo "Use <type>[(scope)][!]: <description>, where type is one of: $(echo "$types" | sed 's/|/, /g')." >&2
+    exit 1
+fi

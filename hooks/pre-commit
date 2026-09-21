@@ -1,0 +1,22 @@
+#!/bin/sh
+# speckit: block env files and other paths that must never be committed.
+
+# Extra paths to block, as an awk regex (e.g. '^storage/' for Laravel).
+# Leave empty to block env files only.
+blocked_paths=''
+
+blocked=$(git diff --cached --name-only --diff-filter=ACMR | awk -v extra="$blocked_paths" '
+    /(^|\/)\.env(\.[^\/]*)?$/ && !/(^|\/)\.env\.example$/ { print; next }
+    extra != "" && $0 ~ extra && !/\/\.gitignore$/ { print }
+')
+
+if [ -n "$blocked" ]; then
+    echo "pre-commit: these files must never be committed (see the constitution's Git section):" >&2
+    printf '%s\n' "$blocked" | while IFS= read -r path; do
+        echo "  $path" >&2
+    done
+    echo "Unstage them with: git restore --staged <file>" >&2
+    exit 1
+fi
+
+# Format the staged files here if the project has a tool for it.
