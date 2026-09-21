@@ -259,3 +259,11 @@ ShellCheck.
 - The interview rounds are adapted from Matt Pocock's
   [`grilling`](https://github.com/mattpocock/skills/blob/main/skills/productivity/grilling/SKILL.md)
   skill.
+
+## License
+
+[MIT](LICENSE). Parts of the kit are adapted from other open-source work, and
+their notices are in [`licenses/`](licenses/) and ship with every install. The
+lane prompts carry their upstream's Commons Clause: you may use, change and
+share them freely, but not sell them or a product whose value comes mainly from
+them.
