@@ -8,17 +8,17 @@ usage() {
     cat <<'USAGE'
 Usage: install.sh [--floe] [--claude] [--hooks] [--no-caveman] <project-dir>
 
-  --floe     Lane skills into .floe/skills/, and the seven-lane board into
-             Floe's config for this project (projects/<dir-name>/colony.toml).
-  --claude   Lane skills into .claude/skills/, for running lanes by hand.
+  --claude   Skills into .claude/skills/, to run with Claude Code. The default.
+  --floe     Skills into .floe/skills/, and the seven-lane board into Floe's
+             config for this project (projects/<dir-name>/colony.toml).
   --hooks    Git hooks (conventional commits, no AI attribution, no .env)
              into .githooks/, and core.hooksPath pointed at them.
   --no-caveman
              Leave out the caveman ultra voice. By default every skill talks
              ultra-compressed in chat; what it writes to disk stays plain.
 
-Without --floe or --claude, both are installed.
-Always installed: .speckit/ (templates, check-artifacts, VERSION), plus
+Without --floe or --claude, only --claude is installed.
+Always installed: .speckit/ (templates, bin/next, bin/check-artifacts), plus
 CLAUDE.md and specs/product.md from the templates when they don't exist yet.
 
 Environment: FLOE_CONFIG_DIR (default ~/.config/floe).
@@ -45,7 +45,7 @@ done
 [ -n "$target" ] || usage 1
 [ -d "$target" ] || { echo "install.sh: $target is not a directory" >&2; exit 1; }
 target=$(cd "$target" && pwd)
-[ "$floe" -eq 1 ] || [ "$claude" -eq 1 ] || { floe=1; claude=1; }
+[ "$floe" -eq 1 ] || [ "$claude" -eq 1 ] || claude=1
 
 say() { printf '  %s\n' "$*"; }
 
@@ -97,10 +97,10 @@ echo "speckit $(cat "$kit/VERSION") → $target"
 mkdir -p "$target/.speckit/templates/card" "$target/.speckit/bin"
 cp "$kit"/templates/card/*.md "$target/.speckit/templates/card/"
 cp "$kit/templates/CLAUDE.md" "$kit/templates/product.md" "$target/.speckit/templates/"
-cp "$kit/bin/check-artifacts" "$target/.speckit/bin/check-artifacts"
-chmod +x "$target/.speckit/bin/check-artifacts"
+cp "$kit/bin/check-artifacts" "$kit/bin/next" "$target/.speckit/bin/"
+chmod +x "$target/.speckit/bin/check-artifacts" "$target/.speckit/bin/next"
 cp "$kit/VERSION" "$target/.speckit/VERSION"
-say ".speckit/ (templates, bin/check-artifacts)"
+say ".speckit/ (templates, bin/next, bin/check-artifacts)"
 if [ -n "$voice" ]; then
     mkdir -p "$target/.speckit/licenses"
     cp "$kit/licenses/caveman-MIT.txt" "$target/.speckit/licenses/"
